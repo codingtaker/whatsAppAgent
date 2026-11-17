@@ -16,6 +16,8 @@ data class Pending(
     val notifKey: String,
     val message: String,
     val receivedAt: Long,
+    /** When the alert must ring if the chat has not been opened. */
+    val deadline: Long,
 )
 
 /** Everything is kept on the device, in SharedPreferences. */
@@ -68,7 +70,11 @@ object Store {
         val obj = JSONObject(raw)
         return obj.keys().asSequence().map { k ->
             val o = obj.getJSONObject(k)
-            Pending(o.getString("contact"), o.getString("key"), o.getString("message"), o.getLong("at"))
+            val at = o.getLong("at")
+            Pending(
+                o.getString("contact"), o.getString("key"), o.getString("message"),
+                at, o.optLong("deadline", at + 60_000L),
+            )
         }.toList()
     }
 
@@ -83,7 +89,7 @@ object Store {
         obj.put(
             normalize(p.contact),
             JSONObject().put("contact", p.contact).put("key", p.notifKey)
-                .put("message", p.message).put("at", p.receivedAt),
+                .put("message", p.message).put("at", p.receivedAt).put("deadline", p.deadline),
         )
         prefs(c).edit().putString(KEY_PENDING, obj.toString()).apply()
     }

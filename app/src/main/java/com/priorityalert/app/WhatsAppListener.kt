@@ -1,7 +1,9 @@
 package com.priorityalert.app
 
 import android.app.Notification
+import android.content.ComponentName
 import android.content.Intent
+import android.util.Log
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 
@@ -15,6 +17,18 @@ import android.service.notification.StatusBarNotification
  */
 class WhatsAppListener : NotificationListenerService() {
 
+    override fun onListenerConnected() {
+        connected = true
+        Log.i(TAG, "Listener connected")
+        WatchService.start(this)
+    }
+
+    override fun onListenerDisconnected() {
+        connected = false
+        Log.w(TAG, "Listener disconnected, requesting rebind")
+        runCatching { requestRebind(ComponentName(this, WhatsAppListener::class.java)) }
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName !in WHATSAPP_PACKAGES) return
         val n = sbn.notification ?: return
@@ -24,7 +38,9 @@ class WhatsAppListener : NotificationListenerService() {
         if (extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, false)) return
 
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: return
-        val contact = Store.findContact(this, title) ?: return
+        val contact = Store.findContact(this, title)
+        Log.i(TAG, "WhatsApp notification from '$title' (${sbn.packageName}) -> ${if (contact != null) "VIP" else "ignored"}")
+        if (contact == null) return
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
         val signature = "${n.`when`}|$text"
 
@@ -40,8 +56,18 @@ class WhatsAppListener : NotificationListenerService() {
         if (signature == Store.signature(this, contact.name)) return
         Store.setSignature(this, contact.name, signature)
 
-        Store.setPending(this, Pending(contact.name, sbn.key, text, System.currentTimeMillis()))
-        AlertScheduler.schedule(this, contact)
+        val now = System.currentTimeMillis()
+        val pending = Pending(contact.name, sbn.key, text, now, now + contact.timeoutMinutes * 60_000L)
+        Store.setPending(this, pending)
+        AlertScheduler.schedule(this, pending)
+        Log.i(TAG, "Timer started for ${contact.name}: ${contact.timeoutMinutes} min")
+    }
+
+    companion object {
+        private const val TAG = "PriorityAlert"
+
+        @Volatile
+        var connected = false
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap, reason: Int) {
@@ -54,6 +80,7 @@ class WhatsAppListener : NotificationListenerService() {
             startService(Intent(this, AlertService::class.java).setAction(AlertService.ACTION_STOP))
         }
         Store.allPending(this).filter { it.notifKey == sbn.key }.forEach {
+            Log.i(TAG, "Chat with ${it.contact} opened (reason $reason), timer cancelled")
             AlertScheduler.cancel(this, it.contact)
             Store.clearPending(this, it.contact)
         }

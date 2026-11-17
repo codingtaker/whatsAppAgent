@@ -18,6 +18,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import android.util.Log
 
 /**
@@ -50,6 +51,15 @@ class AlertService : Service() {
         }
 
         startRinging()
+        // With "display over other apps" granted, open the alert screen directly: some ROMs
+        // downgrade full-screen notifications to a simple banner on the lock screen.
+        if (Settings.canDrawOverlays(this)) {
+            try {
+                startActivity(alertIntent(this, contact, message, receivedAt))
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not open alert screen", e)
+            }
+        }
         handler.removeCallbacks(autoStop)
         handler.postDelayed(autoStop, MAX_RING_MS)
         return START_NOT_STICKY
@@ -126,6 +136,13 @@ class AlertService : Service() {
             }
         }
 
+        private fun alertIntent(c: Context, contact: String, message: String, receivedAt: Long): Intent =
+            Intent(c, AlertActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(EXTRA_CONTACT, contact)
+                .putExtra(EXTRA_MESSAGE, message)
+                .putExtra(EXTRA_RECEIVED_AT, receivedAt)
+
         private fun buildNotification(
             c: Context, contact: String, message: String, receivedAt: Long, ongoing: Boolean,
         ): Notification {
@@ -139,13 +156,7 @@ class AlertService : Service() {
             )
             val immutable = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             val fullScreen = PendingIntent.getActivity(
-                c, 0,
-                Intent(c, AlertActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    .putExtra(EXTRA_CONTACT, contact)
-                    .putExtra(EXTRA_MESSAGE, message)
-                    .putExtra(EXTRA_RECEIVED_AT, receivedAt),
-                immutable,
+                c, 0, alertIntent(c, contact, message, receivedAt), immutable,
             )
             val stop = PendingIntent.getService(
                 c, 1, Intent(c, AlertService::class.java).setAction(ACTION_STOP), immutable,

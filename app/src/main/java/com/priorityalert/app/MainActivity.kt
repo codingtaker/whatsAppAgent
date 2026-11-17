@@ -3,8 +3,12 @@ package com.priorityalert.app
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.util.Log
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -26,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var accessButton: Button
     private lateinit var batteryButton: Button
+    private lateinit var overlayButton: Button
     private lateinit var list: ListView
     private var contacts: List<Contact> = emptyList()
 
@@ -47,6 +52,18 @@ class MainActivity : Activity() {
             text = "Désactiver l'optimisation de batterie"
             setOnClickListener { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
         }
+        overlayButton = Button(this).apply {
+            text = "Autoriser l'affichage sur l'écran verrouillé"
+            setOnClickListener {
+                startActivity(
+                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")),
+                )
+            }
+        }
+        val autoStart = Button(this).apply {
+            text = "Autoriser le démarrage automatique"
+            setOnClickListener { openAutoStartSettings() }
+        }
         list = ListView(this).apply {
             setOnItemClickListener { _, _, position, _ -> editContact(position) }
         }
@@ -66,10 +83,23 @@ class MainActivity : Activity() {
         root.addView(status)
         root.addView(accessButton)
         root.addView(batteryButton)
+        root.addView(overlayButton)
+        root.addView(autoStart)
         root.addView(list, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         root.addView(add)
         root.addView(test)
         setContentView(root)
+
+        // Debug builds only: `adb shell am start -n com.priorityalert.app/.MainActivity --ei debug_timer_seconds 60`
+        // starts a fake VIP timer, to test background alerts without a real WhatsApp message.
+        val testSeconds = intent.getIntExtra("debug_timer_seconds", 0)
+        if (testSeconds > 0 && applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            val now = System.currentTimeMillis()
+            val p = Pending("Test minuteur", "", "Test du minuteur en arrière-plan", now, now + testSeconds * 1000L)
+            Store.setPending(this, p)
+            AlertScheduler.schedule(this, p)
+            Log.i("PriorityAlert", "Debug timer started: ${testSeconds}s")
+        }
 
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -80,7 +110,26 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        WatchService.start(this)
         refresh()
+    }
+
+    /** Infinix/Tecno/itel (Phone Master) autostart screen, or the app's info page elsewhere. */
+    private fun openAutoStartSettings() {
+        val candidates = listOf(
+            Intent("com.cyin.himgr.applicationmanager.view.activities.AUTO_START_ACTIVITY"),
+            Intent().setComponent(
+                ComponentName("com.transsion.phonemaster", "com.cyin.himgr.autostart.AutoStartActivity"),
+            ),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")),
+        )
+        for (intent in candidates) {
+            try {
+                startActivity(intent)
+                return
+            } catch (_: Exception) {
+            }
+        }
     }
 
     private fun hasNotificationAccess(): Boolean =
@@ -90,13 +139,16 @@ class MainActivity : Activity() {
     private fun refresh() {
         val access = hasNotificationAccess()
         val battery = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
+        val overlay = Settings.canDrawOverlays(this)
         status.text = when {
             !access -> "⚠ L'app ne peut pas encore voir les notifications WhatsApp."
             !battery -> "⚠ Android peut endormir l'app : désactivez l'optimisation de batterie pour Priority Alert."
-            else -> "✓ Surveillance active."
+            !overlay -> "⚠ L'alerte risque de ne pas s'afficher sur l'écran verrouillé."
+            else -> "✓ Surveillance active. Pensez aussi au démarrage automatique."
         }
         accessButton.visibility = if (access) View.GONE else View.VISIBLE
         batteryButton.visibility = if (battery) View.GONE else View.VISIBLE
+        overlayButton.visibility = if (overlay) View.GONE else View.VISIBLE
 
         contacts = Store.contacts(this)
         val rows = contacts.map {
