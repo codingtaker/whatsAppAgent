@@ -227,7 +227,7 @@ adb logcat -G 8M
 
 - [x] **V1** : surveillance des notifications, minuteur par contact, alerte locale, fiabilité sur XOS
 - [x] **Design** : logo, icône, interface Compose et écran d'alerte façon appel entrant
-- [ ] **V2** : vrai appel téléphonique en escalade, par exemple via Twilio, avec un message vocal du type « Vianel vous a écrit il y a 5 minutes »
+- [ ] **V2** : vrai appel téléphonique en escalade, par exemple via Twilio, avec un message vocal du type « Koffi vous a écrit il y a 5 minutes »
 - [ ] **V2** : niveaux d'escalade (notification, puis sonnerie, puis appel)
 - [ ] **V3** : détection de l'urgence par IA, pour adapter le délai au contenu du message (« Salut » ou « Appelle-moi tout de suite »)
 - [ ] **V3** : autres messageries (Telegram, SMS…)
