@@ -1,85 +1,66 @@
 package com.priorityalert.app
 
-import android.app.Activity
 import android.content.Intent
+import android.graphics.Color as AndroidColor
 import android.os.Bundle
-import android.view.Gravity
 import android.view.WindowManager
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.priorityalert.app.ui.AlertInfo
+import com.priorityalert.app.ui.AlertScreen
+import com.priorityalert.app.ui.PriorityTheme
 
 /** Full-screen "incoming call" style screen shown over the lock screen while the alert rings. */
-class AlertActivity : Activity() {
+class AlertActivity : ComponentActivity() {
+
+    private var info by mutableStateOf(AlertInfo("", "", 0L))
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        render(intent)
+        info = read(intent)
+
+        setContent {
+            PriorityTheme(dark = true) {
+                AlertScreen(
+                    info = info,
+                    onOpenWhatsApp = {
+                        stopAlert()
+                        WHATSAPP_PACKAGES.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
+                            ?.let { startActivity(it) }
+                        finish()
+                    },
+                    onStop = {
+                        stopAlert()
+                        finish()
+                    },
+                )
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        render(intent)
+        info = read(intent)
     }
 
-    private fun render(intent: Intent) {
-        val contact = intent.getStringExtra(AlertService.EXTRA_CONTACT).orEmpty()
-        val message = intent.getStringExtra(AlertService.EXTRA_MESSAGE).orEmpty()
-        val receivedAt = intent.getLongExtra(AlertService.EXTRA_RECEIVED_AT, System.currentTimeMillis())
-        val minutes = ((System.currentTimeMillis() - receivedAt) / 60_000L).coerceAtLeast(0)
-        val pad = (24 * resources.displayMetrics.density).toInt()
-
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(pad, pad, pad, pad)
-        }
-        root.addView(TextView(this).apply {
-            text = "WhatsApp Alert"
-            textSize = 16f
-            gravity = Gravity.CENTER
-        })
-        root.addView(TextView(this).apply {
-            text = contact
-            textSize = 34f
-            gravity = Gravity.CENTER
-            setPadding(0, pad / 2, 0, pad / 2)
-        })
-        root.addView(TextView(this).apply {
-            text = "vous a écrit il y a $minutes min et n'a pas eu de réponse."
-            textSize = 18f
-            gravity = Gravity.CENTER
-        })
-        root.addView(TextView(this).apply {
-            text = if (message.isBlank()) "" else "« $message »"
-            textSize = 18f
-            gravity = Gravity.CENTER
-            setPadding(0, pad, 0, pad * 2)
-        })
-        root.addView(Button(this).apply {
-            text = "Ouvrir WhatsApp"
-            textSize = 18f
-            setOnClickListener {
-                stopAlert()
-                WHATSAPP_PACKAGES.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
-                    ?.let { startActivity(it) }
-                finish()
-            }
-        })
-        root.addView(Button(this).apply {
-            text = "Arrêter l'alerte"
-            textSize = 18f
-            setOnClickListener {
-                stopAlert()
-                finish()
-            }
-        })
-        setContentView(root)
-    }
+    private fun read(intent: Intent) = AlertInfo(
+        contact = intent.getStringExtra(AlertService.EXTRA_CONTACT).orEmpty(),
+        message = intent.getStringExtra(AlertService.EXTRA_MESSAGE).orEmpty(),
+        receivedAt = intent.getLongExtra(AlertService.EXTRA_RECEIVED_AT, System.currentTimeMillis()),
+    )
 
     private fun stopAlert() {
         stopService(Intent(this, AlertService::class.java))

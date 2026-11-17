@@ -102,7 +102,8 @@ class WatchService : Service() {
                 c, 0, Intent(c, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
             )
             return Notification.Builder(c, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setSmallIcon(R.drawable.ic_stat_bell)
+                .setColor(0xFFFF6B5B.toInt())
                 .setContentTitle("Surveillance des contacts importants active")
                 .setOngoing(true)
                 .setContentIntent(open)

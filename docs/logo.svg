@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 108" width="440" height="108">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2B3163"/>
+      <stop offset="0.55" stop-color="#1B1F3B"/>
+      <stop offset="1" stop-color="#12152B"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" rx="24" fill="url(#bg)"/>
+  <g transform="translate(54 54) scale(0.92) translate(-54 -54)">
+    <path fill="#FFFFFF" d="M42,30 H66 A14,14 0 0 1 80,44 V60 A14,14 0 0 1 66,74 H52 L39,84 L42,74 A14,14 0 0 1 28,60 V44 A14,14 0 0 1 42,30 Z"/>
+    <path fill="#FF6B5B" d="M54,41.5 C47.5,41.5 44,46.5 44,52.5 V57 L41.5,60 V61.5 H66.5 V60 L64,57 V52.5 C64,46.5 60.5,41.5 54,41.5 Z"/>
+    <circle fill="#FF6B5B" cx="54" cy="39.5" r="2"/>
+    <path fill="#FF6B5B" d="M50.5,63.5 A3.5,3.5 0 0 0 57.5,63.5 Z"/>
+    <circle fill="#20244A" cx="74" cy="35" r="9.5"/>
+    <circle fill="#FBBF24" cx="74" cy="35" r="6.5"/>
+  </g>
+  <text x="130" y="52" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="34" font-weight="800" fill="#1B1F3B" letter-spacing="-0.5">Priority<tspan fill="#FF6B5B"> Alert</tspan></text>
+  <text x="131" y="80" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="15" font-weight="500" fill="#5B6080">Vos messages importants ne passent plus inaperçus</text>
+</svg>
